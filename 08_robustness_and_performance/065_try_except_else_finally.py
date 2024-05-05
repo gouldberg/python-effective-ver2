@@ -1,28 +1,35 @@
 #!/usr/bin/env PYTHONHASHSEED=1234 python3
 
 import logging
+import json
+
 
 # ------------------------------------------------------------------------------
-# finally:  always runs after try block
+# finally:  always runs after try block (such as file handler)
 # ------------------------------------------------------------------------------
 
 def try_finally_example(filename):
     print('* Opening file')
+    # ----------
+    # open should be before try. Exception such as IOError should skip finally block.
     handle = open(filename, encoding='utf-8') # May raise OSError
     try:
         print('* Reading data')
-        return handle.read()  # May raise UnicodeDecodeError
+        # may raise UnicodeDecodeError
+        return handle.read()
     finally:
+        # always runs after try block
         print('* Calling close()')
-        handle.close()        # Always runs after try block
+        handle.close()
 
 
 try:
-    filename = 'random_data.txt'
+    filename = '00_tmp/random_data.txt'
     
     with open(filename, 'wb') as f:
         f.write(b'\xf1\xf2\xf3\xf4\xf5')  # Invalid utf-8
     
+    # UnicodeDecodeError.
     data = try_finally_example(filename)
     # This should not be reached.
     import sys
@@ -33,7 +40,8 @@ else:
     assert False
 
 
-# Example 3
+# ----------
+# now not UnicodeDecodeError (after read), IOError at open 
 try:
     try_finally_example('does_not_exist.txt')
 except:
@@ -42,26 +50,31 @@ else:
     assert False
 
 
-# Example 4
-import json
+# ------------------------------------------------------------------------------
+# try/except/else makes clear which exception is raised,
+# makes clear exception communication.
+# ------------------------------------------------------------------------------
 
 def load_json_key(data, key):
     try:
         print('* Loading JSON data')
-        result_dict = json.loads(data)  # May raise ValueError
+        # may raise Value Error
+        result_dict = json.loads(data)
     except ValueError as e:
         print('* Handling ValueError')
         raise KeyError(key) from e
     else:
         print('* Looking up key')
-        return result_dict[key]         # May raise KeyError
+        # may raise KeyError
+        return result_dict[key]
 
-
-# Example 5
+# ----------
+# OK case
 assert load_json_key('{"foo": "bar"}', 'foo') == 'bar'
 
 
-# Example 6
+# ----------
+# KeyError
 try:
     load_json_key('{"foo": bad payload', 'foo')
 except:
@@ -69,8 +82,8 @@ except:
 else:
     assert False
 
-
-# Example 7
+# ----------
+# error at result_dict[key]
 try:
     load_json_key('{"foo": "bar"}', 'does not exist')
 except:
@@ -79,7 +92,12 @@ else:
     assert False
 
 
-# Example 8
+# ------------------------------------------------------------------------------
+# try/except/else/finally
+#   else:  minimize try block to make clear what is successful.
+#          else block do additional tasks after successful try and before finally.
+# ------------------------------------------------------------------------------
+
 UNDEFINED = object()
 DIE_IN_ELSE_BLOCK = False
 
@@ -103,6 +121,7 @@ def divide_json(path):
         op['result'] = value
         result = json.dumps(op)
         handle.seek(0)          # May raise OSError
+        # simulate hard disk is full.
         if DIE_IN_ELSE_BLOCK:
             import errno
             import os
@@ -114,23 +133,27 @@ def divide_json(path):
         handle.close()          # Always runs
 
 
-# Example 9
-temp_path = 'random_data.json'
+temp_path = '00_tmp/random_data.json'
 
+
+# ----------
+# OK: try + else + finally
 with open(temp_path, 'w') as f:
     f.write('{"numerator": 1, "denominator": 10}')
 
 assert divide_json(temp_path) == 0.1
 
 
-# Example 10
+# ----------
+# ZeroDivisionError: try + except + finally
 with open(temp_path, 'w') as f:
     f.write('{"numerator": 1, "denominator": 0}')
 
 assert divide_json(temp_path) is UNDEFINED
 
 
-# Example 11
+# ----------
+# json.decoder.JSONDecodeError: try + finally
 try:
     with open(temp_path, 'w') as f:
         f.write('{"numerator": 1 bad data')
@@ -142,7 +165,9 @@ else:
     assert False
 
 
-# Example 12
+# ----------
+# OSError: try + else + finally
+# (simulated hard dis is full)
 try:
     with open(temp_path, 'w') as f:
         f.write('{"numerator": 1, "denominator": 10}')
