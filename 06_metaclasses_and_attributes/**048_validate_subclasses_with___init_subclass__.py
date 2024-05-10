@@ -6,20 +6,18 @@
 
 class Meta(type):
     def __new__(meta, name, bases, class_dict):
-        global print
-        orig_print = print
         print(f'* Running {meta}.__new__ for {name}')
         print('Bases:', bases)
-        print = pprint
         print(class_dict)
-        print = orig_print
         return type.__new__(meta, name, bases, class_dict)
+
 
 class MyClass(metaclass=Meta):
     stuff = 123
 
     def foo(self):
         pass
+
 
 class MySubclass(MyClass):
     other = 567
